@@ -9,9 +9,9 @@ export default function Test() {
 
   function handleSubmit2(event) {
     event.preventDefault();
-    const data = { email: email, password: class1 };
+    const data = { email: email, class: class1 };
     console.log(data);
-    fetch("/api/login", {
+    fetch("/api/createclass", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -38,10 +38,10 @@ export default function Test() {
               alt="Workflow"
             />
             <h2 class="mt-6 text-center text-3xl leading-9 font-extrabold text-gray-900">
-              Welcome! Please enter your email to be alerted when a section
-              opens
+              Welcome!
             </h2>
             <p class="mt-2 text-center text-sm leading-5 text-gray-600">
+              Please enter your email to be alerted when a section opens
               Currently available for UNCC students only. Please enter the FULL
               course name.
             </p>
