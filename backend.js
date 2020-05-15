@@ -44,7 +44,7 @@ router.post("/createclass", function (req, res, next) {
       console.log("1 record inserted");
     });
   });
-
+  runMain2(c);
   res.redirect("/");
 });
 
@@ -72,25 +72,10 @@ router.post("/alert", function (req, res, next) {
       console.log(result);
       try {
         result.forEach(function (value) {
-          //Replace console.log with the python function call and pass value.name in as a param
-          console.log(value.Classname + "WE HERE");
-          // const pyProg = spawn("python", [
-          // "/home/schedule/python_scripts/pyscript.py",
-          //value.Classname,
-          //]);
-
-          runMain(value.Classname);
+          runMain(value.Classname, value.Number);
+          //email(value.Classname);
           console.log("HERE");
-          let newnum = 0;
-          // pyProg.stdout.on("data", function (data) {
-          console.log(data);
-          newnum = data;
-          if (newnum > value.Number) {
-            console.log("UPDATING");
-            update(value.Classname, newnum);
-            console.log("EMAILING");
-            email(value.Classname);
-          }
+          //
 
           //We now need to update db with the new number returned by the python function.
         });
@@ -103,7 +88,7 @@ router.post("/alert", function (req, res, next) {
 });
 
 function update(params, num) {
-  console.log(params + "TESTING");
+  //console.log(params + "TESTING");
   var con = mysql.createConnection({
     host: "",
     user: process.env.user,
@@ -117,7 +102,6 @@ function update(params, num) {
     con.query(sql, [num, params], function (err, result) {
       if (err) throw err;
       console.log(result);
-      res.json({ test: result });
     });
   });
 }
@@ -129,9 +113,9 @@ function email(param) {
     database: "schedule",
   });
   var transporter = nodemailer.createTransport({
-    service: "gmail",
+    service: "Mailgun",
     auth: {
-      user: "sectionchange@gmail.com",
+      user: "postmaster@sandbox0e3e81e55b91460f9a74cf576d4acd3b.mailgun.org",
       pass: process.env.EMAILP,
     },
   });
@@ -148,7 +132,7 @@ function email(param) {
         result.forEach(function (value) {
           console.log("MAILING");
           var mailOptions = {
-            from: "sectionchange@gmail.com",
+            from: "sectionchange@brycekane.tech",
             to: value.name,
             subject: "A new section for " + value.class + " has opened!",
             text: "Sent from sectionchange",
@@ -167,14 +151,63 @@ function email(param) {
     });
   });
 }
-function runMain(params) {
+function runMain(params, num) {
   return new Promise(async function (resolve, reject) {
-    let r = await runPy(params);
-    console.log(JSON.parse(JSON.stringify(r.toString())), "Done...!@"); //Approach to parse string to JSON.
+    let r = await runPy(params, num);
+    //console.log(JSON.parse(JSON.stringify(r.toString())), "Done...!@"); //Approach to parse string to JSON.
+  });
+}
+function runMain2(params) {
+  return new Promise(async function (resolve, reject) {
+    let r = await runPy2(params);
+    console.log(r);
+    //console.log(JSON.parse(JSON.stringify(r.toString())), "Done...!@"); //Approach to parse string to JSON.
+  });
+}
+function runPy2(params) {
+  return new Promise(async function (resolve, reject) {
+    let options = {
+      mode: "text",
+      pythonOptions: ["-u"],
+      scriptPath: "/home/schedule/python_scripts", //Path to your script
+      args: [params], //Approach to send JSON as when I tried 'json' in mode I was getting error.
+    };
+
+    await PythonShell.run("pyscript.py", options, function (err, results) {
+      //On 'results' we get list of strings of all print done in your py scripts sequentially.
+      if (err) throw err;
+      console.log("results: ");
+      var con = mysql.createConnection({
+        host: "",
+        user: process.env.user,
+        password: process.env.PASSWORD,
+        database: "schedule",
+      });
+      for (let i of results) {
+        con.connect(function (err) {
+          if (err) throw err;
+          console.log("Connected!");
+
+          var sql = "INSERT INTO classes(Classname, Number) VALUES (?,?)";
+          console.log(sql, params);
+          try {
+            con.query(sql, [params, i], function (err, result) {
+              if (err) {
+                console.log(err);
+              }
+              console.log("1 record inserted");
+            });
+          } catch {}
+        });
+
+        console.log(i);
+      }
+      resolve(results); //I returned only JSON(Stringified) out of all string I got from py script
+    });
   });
 }
 
-function runPy(params) {
+function runPy(params, num) {
   return new Promise(async function (resolve, reject) {
     let options = {
       mode: "text",
@@ -188,7 +221,13 @@ function runPy(params) {
       if (err) throw err;
       console.log("results: ");
       for (let i of results) {
-        console.log(i, "---->", typeof i);
+        if (i > num) {
+          console.log("UPDATING");
+          update(params, i);
+          console.log("EMAILING");
+          email(params);
+        }
+        // console.log(i, "---->", typeof i);
       }
       resolve(results[1]); //I returned only JSON(Stringified) out of all string I got from py script
     });
